@@ -2286,8 +2286,9 @@ bigquery_v2_messages.TableSchema`. or a `ValueProvider` that has a JSON string,
         These can be 'timePartitioning', 'clustering', etc. They are passed
         directly to the job load configuration. See
         https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationload
-      bigquery_job_labels (dict): Labels for BigQuery jobs created by FILE_LOADS.
+      bigquery_job_labels (dict): Labels for jobs created by FILE_LOADS.
         Applies to load, copy, and schema update jobs alongside Beam metadata.
+        Other methods do not create BigQuery jobs and cannot use job labels.
       schema_update_options (list): Allows the schema of the destination
         table to be updated as a side effect of the load job. Each item may be
         a :class:`BigQuerySchemaUpdateOption` member or its string value.
@@ -2475,8 +2476,8 @@ bigquery_v2_messages.TableSchema`. or a `ValueProvider` that has a JSON string,
     if (self.bigquery_job_labels and
         method_to_use != WriteToBigQuery.Method.FILE_LOADS):
       raise ValueError(
-          'bigquery_job_labels is only supported when writing to BigQuery '
-          'with FILE_LOADS.')
+          'bigquery_job_labels requires FILE_LOADS because other write methods '
+          'do not create BigQuery jobs.')
 
     if (self.schema_update_options is not None and
         method_to_use != WriteToBigQuery.Method.FILE_LOADS):

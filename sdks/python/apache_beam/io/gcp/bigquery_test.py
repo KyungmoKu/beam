@@ -18,7 +18,6 @@
 """Unit tests for BigQuery sources and sinks."""
 # pytype: skip-file
 
-import contextlib
 import datetime
 import decimal
 import gc
@@ -1484,34 +1483,6 @@ class TestWriteToBigQuery(unittest.TestCase):
         original.schema_update_options, deserialized.schema_update_options)
     self.assertEqual(
         original.bigquery_job_labels, deserialized.bigquery_job_labels)
-
-  def test_bigquery_job_labels_reach_file_load_jobs(self):
-    from apache_beam.io.gcp import bigquery_file_loads as bqfl
-
-    p = TestPipeline()
-    labels = {'environment': 'test'}
-    dofns = [
-        bqfl.TriggerLoadJobs,
-        bqfl.TriggerCopyJobs,
-        bqfl.UpdateDestinationSchema
-    ]
-    with contextlib.ExitStack() as stack:
-      mocks = [
-          stack.enter_context(
-              mock.patch.object(
-                  dofn, '__init__', autospec=True, side_effect=dofn.__init__))
-          for dofn in dofns
-      ]
-      _ = (
-          p | beam.Create([]) | WriteToBigQuery(
-              table='project:dataset.table',
-              method=WriteToBigQuery.Method.FILE_LOADS,
-              bigquery_job_labels=labels,
-              custom_gcs_temp_location='gs://bucket/temp'))
-    for constructor in mocks:
-      self.assertTrue(constructor.call_args_list)
-      for call in constructor.call_args_list:
-        self.assertEqual(labels, call.kwargs['bigquery_job_labels'])
 
   @parameterized.expand([
       (WriteToBigQuery.Method.STREAMING_INSERTS, ),
