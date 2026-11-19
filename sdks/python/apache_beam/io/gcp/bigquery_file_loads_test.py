@@ -409,6 +409,48 @@ class TestPartitionFiles(unittest.TestCase):
 
 class TestBigQueryFileLoads(_TestCaseWithTempDirCleanUp):
   @parameterized.expand([
+      ('load', bqfl.TriggerLoadJobs),
+      ('copy', bqfl.TriggerCopyJobs),
+      ('schema_update', bqfl.UpdateDestinationSchema),
+  ])
+  def test_bigquery_job_labels(self, name, dofn):
+    labels = {'environment': 'test'}
+    job = bigquery_api.JobReference(projectId='project', jobId='load_job')
+    destination = 'project:dataset.table'
+    kwargs = {'bigquery_job_labels': labels, 'step_name': 'write'}
+    if name == 'schema_update':
+      kwargs.update(
+          write_disposition='WRITE_APPEND',
+          additional_bq_parameters={
+              'schemaUpdateOptions': ['ALLOW_FIELD_ADDITION']
+          })
+    with mock.patch.object(bigquery_tools, 'BigQueryWrapper') as wrapper:
+      fn = dofn(**kwargs)
+      fn.start_bundle()
+      client = wrapper.return_value
+      client.perform_load_job.return_value = job
+      client.get_table.return_value.schema = bigquery_api.TableSchema()
+      client.get_job.return_value.configuration.load.schema = (
+          bigquery_tools.get_bq_tableschema(_ELEMENTS_SCHEMA))
+      if name == 'load':
+        list(
+            fn.process((destination, (0, ['gs://bucket/file'])),
+                       'load',
+                       pane_info=mock.Mock(index=0)))
+      elif name == 'copy':
+        fn.process([(destination, job)], 'copy')
+      else:
+        fn.process((destination, job), 'schema_update')
+      request = (
+          client._insert_copy_job
+          if name == 'copy' else client.perform_load_job)
+      self.assertEqual({
+          'environment': 'test', 'step_name': 'write'
+      },
+                       request.call_args.kwargs['job_labels'])
+    self.assertEqual({'environment': 'test'}, labels)
+
+  @parameterized.expand([
       ('append', BigQueryDisposition.WRITE_APPEND),
       ('truncate', BigQueryDisposition.WRITE_TRUNCATE),
   ])
